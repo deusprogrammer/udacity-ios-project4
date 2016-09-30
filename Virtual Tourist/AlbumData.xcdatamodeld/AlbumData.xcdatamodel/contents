@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model userDefinedModelVersionIdentifier="" type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="10171" systemVersion="16A323" minimumToolsVersion="Xcode 7.0">
+    <entity name="AlbumPin" representedClassName=".AlbumPin" syncable="YES">
+        <attribute name="latitude" optional="YES" attributeType="Double" defaultValueString="0.0" syncable="YES"/>
+        <attribute name="longitude" optional="YES" attributeType="Double" defaultValueString="0.0" syncable="YES"/>
+        <relationship name="photos" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="AlbumPinPhoto" inverseName="pin" inverseEntity="AlbumPinPhoto" syncable="YES"/>
+    </entity>
+    <entity name="AlbumPinPhoto" representedClassName=".AlbumPinPhoto" parentEntity="AlbumPin" syncable="YES">
+        <attribute name="image" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES" syncable="YES"/>
+        <attribute name="title" attributeType="String" syncable="YES"/>
+        <relationship name="pin" maxCount="1" deletionRule="Nullify" destinationEntity="AlbumPin" inverseName="photos" inverseEntity="AlbumPin" syncable="YES"/>
+    </entity>
+    <elements>
+        <element name="AlbumPin" positionX="297" positionY="-9" width="128" height="88"/>
+        <element name="AlbumPinPhoto" positionX="-54" positionY="-9" width="128" height="88"/>
+    </elements>
+</model>
