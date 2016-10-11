@@ -8,6 +8,7 @@
 
 import MapKit
 import UIKit
+import CoreData
 
 class PhotoCollectionItem : UICollectionViewCell {
     @IBOutlet weak var imageView: UIImageView!
@@ -19,8 +20,7 @@ class PhotoCollectionView : UICollectionView {
 class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate, UICollectionViewDataSource {
     var service = FlickrApiService(apiKey: FlickrConfig.apiKey)
     
-    var lat : Double!
-    var lon : Double!
+    var pin : AlbumPin!
     
     var photos : Array<FlickrPhoto> = []
     var photosLoaded = 0
@@ -59,7 +59,7 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         var annotations = [MKPointAnnotation]()
         
         // The lat and long are used to create a CLLocationCoordinates2D instance.
-        let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        let coordinate = CLLocationCoordinate2D(latitude: Double(pin.latitude!), longitude: Double(pin.longitude!))
         
         // Here we create the annotation and set its coordiate
         let annotation = MKPointAnnotation()
@@ -74,7 +74,7 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         
         self.newCollectionButton.enabled = false
         
-        updatePhotos(lat: self.lat, lon: self.lon)
+        updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
     }
     
     override func viewDidLoad() {
@@ -85,6 +85,9 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCellWithReuseIdentifier("PhotoCollectionCell", forIndexPath:  indexPath) as! PhotoCollectionItem
         let photo = photos[indexPath.row]
+        
+        var pinPhoto = DataLayerService.createObjectForName("AlbumPinPhoto") as! AlbumPinPhoto
+        pinPhoto.title = photo.name
         
         // Set image view to load image keeping aspect ratio
         cell.imageView.contentMode = UIViewContentMode.ScaleAspectFit
@@ -97,6 +100,11 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0)
         dispatch_async(queue) { () -> Void in
             let data = NSData(contentsOfURL: url!)
+            
+            pinPhoto.image = data
+            
+            DataLayerService.saveContext()
+            
             let img = UIImage(data: data!)!
             self.photosLoaded += 1
             dispatch_async(dispatch_get_main_queue(), {
@@ -116,14 +124,29 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     }
     
     @IBAction func newCollectionButtonPressed(sender: AnyObject) {
-        updatePhotos(lat: self.lat, lon: self.lon)
+        updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
     }
 }
 
 class MapViewController : UIViewController, UIGestureRecognizerDelegate {
     var service = FlickrApiService(apiKey: FlickrConfig.apiKey)
+    var pins : [AlbumPin]!
     
     @IBOutlet weak var mapView: MKMapView!
+    
+    override func viewWillAppear(animated: Bool) {
+        self.pins = DataLayerService.getObjectForEntityName("AlbumPin") as! [AlbumPin]
+        
+        for pin in pins {
+            var coordinate = CLLocationCoordinate2D()
+            coordinate.latitude = Double(pin.latitude!)
+            coordinate.longitude = Double(pin.longitude!)
+            
+            let annotation = MKPointAnnotation()
+            annotation.coordinate = coordinate
+            mapView.addAnnotation(annotation)
+        }
+    }
     
     override func viewDidLoad() {
         let gestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(MapViewController.handleTap(_:)))
@@ -145,9 +168,16 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate {
         let location = gestureReconizer.locationInView(mapView)
         let coordinate = mapView.convertPoint(location, toCoordinateFromView: mapView)
         
+        let pin = DataLayerService.createObjectForName("AlbumPin") as! AlbumPin
+        pin.longitude = coordinate.longitude
+        pin.latitude  = coordinate.latitude
+        
+        self.pins.append(pin)
+        
         let viewController = self.storyboard?.instantiateViewControllerWithIdentifier("PhotoCollectionViewController") as! PhotoCollectionViewController
-        viewController.lat = coordinate.latitude
-        viewController.lon = coordinate.longitude
+        viewController.pin = pin
+        
+        DataLayerService.saveContext()
         
         self.navigationController?.pushViewController(viewController, animated: true)
         
