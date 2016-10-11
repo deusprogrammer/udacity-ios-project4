@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VariablesViewState
+   version = "1.0">
+   <ContextStates>
+      <ContextState
+         contextName = "PhotoCollectionViewController.updatePhotos(lat : Double, lon : Double) -&gt; ():ViewController.swift">
+         <PersistentStrings>
+            <PersistentString
+               value = "pin.photos">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "PhotoCollectionViewController.collectionView(UICollectionView, cellForItemAtIndexPath : NSIndexPath) -&gt; UICollectionViewCell:ViewController.swift">
+         <PersistentStrings>
+            <PersistentString
+               value = "pinPhotos.count">
+            </PersistentString>
+            <PersistentString
+               value = "pinPhotos">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "MapViewController.viewWillAppear(Bool) -&gt; ():ViewController.swift">
+         <PersistentStrings>
+            <PersistentString
+               value = "pin.latitude">
+            </PersistentString>
+            <PersistentString
+               value = "pin.photos">
+            </PersistentString>
+            <PersistentString
+               value = "pins.count">
+            </PersistentString>
+            <PersistentString
+               value = "pin.longitude">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+   </ContextStates>
+</VariablesViewState>

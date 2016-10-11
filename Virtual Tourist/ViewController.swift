@@ -32,25 +32,28 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     func updatePhotos(lat lat: Double, lon: Double) {
         self.photosLoaded = 0
         
-        service.searchByLocation(
-            FlickrAccuracy.Street,
-            lat: "\(lat)",
-            lon: "\(lon)",
-            page: 1,
-            perPage: 10,
-            onComplete: {(photos: Array<FlickrPhoto>!) -> Void in
-                for photo in photos {
-                    print("\(photo.name) => \(photo.url)")
-                }
-                
-                self.photos = photos
-                dispatch_async(dispatch_get_main_queue(), {
-                    self.collectionView.reloadData()
-                })
-            },
-            onError: {(statusCode: Int, payload: Any) -> Void in
-                print("Status: \(statusCode) => \(payload)")
-        })
+        // If pin has no photos, then retrieve them
+        if (pin.photos == nil || pin.photos?.count == 0) {
+            service.searchByLocation(
+                FlickrAccuracy.Street,
+                lat: "\(lat)",
+                lon: "\(lon)",
+                page: 1,
+                perPage: 10,
+                onComplete: {(photos: Array<FlickrPhoto>!) -> Void in
+                    for photo in photos {
+                        print("\(photo.name) => \(photo.url)")
+                    }
+                    
+                    self.photos = photos
+                    dispatch_async(dispatch_get_main_queue(), {
+                        self.collectionView.reloadData()
+                    })
+                },
+                onError: {(statusCode: Int, payload: Any) -> Void in
+                    print("Status: \(statusCode) => \(payload)")
+            })
+        }
     }
     
     override func viewWillAppear(animated: Bool) {
@@ -84,10 +87,6 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCellWithReuseIdentifier("PhotoCollectionCell", forIndexPath:  indexPath) as! PhotoCollectionItem
-        let photo = photos[indexPath.row]
-        
-        var pinPhoto = DataLayerService.createObjectForName("AlbumPinPhoto") as! AlbumPinPhoto
-        pinPhoto.title = photo.name
         
         // Set image view to load image keeping aspect ratio
         cell.imageView.contentMode = UIViewContentMode.ScaleAspectFit
@@ -95,20 +94,35 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         // Set image to loading image
         cell.imageView.image = UIImage(named: "loading")
         
+        // If the photo is persisted, then load it from core data
+        var pinPhotos : [AlbumPinPhoto] = pin.photos?.allObjects as! [AlbumPinPhoto]
+        if (pinPhotos.count > indexPath.row) {
+            cell.imageView.image = UIImage(data: pinPhotos[indexPath.row].image!)
+            return cell
+        }
+        
+        // Otherwise look in the flickr images loaded earlier
+        let photo = photos[indexPath.row]
+        
         // Load image asynchronously
         let url = NSURL(string: photo.url)
         let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0)
         dispatch_async(queue) { () -> Void in
             let data = NSData(contentsOfURL: url!)
             
-            pinPhoto.image = data
-            
-            DataLayerService.saveContext()
-            
             let img = UIImage(data: data!)!
+            
             self.photosLoaded += 1
             dispatch_async(dispatch_get_main_queue(), {
                 cell.imageView.image = img
+                
+                // Create image managed object and save it
+                let pinPhoto : AlbumPinPhoto = DataLayerService.createObjectForName("AlbumPinPhoto") as! AlbumPinPhoto
+                pinPhoto.title = photo.name
+                pinPhoto.image = data
+                pinPhoto.pin = self.pin
+                
+                DataLayerService.saveContext()
                 
                 if (self.photosLoaded == self.photos.count) {
                     self.newCollectionButton.enabled = true
