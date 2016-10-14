@@ -170,7 +170,7 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
             
             let annotation = AlbumPointAnnotation()
             annotation.coordinate = coordinate
-            annotation.title = "FART!"
+            annotation.title = "Album"
             annotation.pin = pin
             mapView.addAnnotation(annotation)
         }
@@ -206,13 +206,6 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
         let viewController = self.storyboard?.instantiateViewControllerWithIdentifier("PhotoCollectionViewController") as! PhotoCollectionViewController
         viewController.pin = pin
         self.navigationController?.pushViewController(viewController, animated: true)
-        
-        // Add annotation
-        let annotation = AlbumPointAnnotation()
-        annotation.coordinate = coordinate
-        annotation.pin = pin
-        annotation.title = "FART"
-        mapView.addAnnotation(annotation)
     }
     
     func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView? {
