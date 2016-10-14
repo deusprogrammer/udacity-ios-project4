@@ -32,31 +32,31 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     func updatePhotos(lat lat: Double, lon: Double) {
         self.photosLoaded = 0
         
-        // If pin has no photos, then retrieve them
-        if (pin.photos == nil || pin.photos?.count == 0) {
-            service.searchByLocation(
-                FlickrAccuracy.Street,
-                lat: "\(lat)",
-                lon: "\(lon)",
-                page: 1,
-                perPage: 10,
-                onComplete: {(photos: Array<FlickrPhoto>!) -> Void in
-                    for photo in photos {
-                        print("\(photo.name) => \(photo.url)")
-                    }
-                    
-                    self.photos = photos
-                    dispatch_async(dispatch_get_main_queue(), {
-                        self.collectionView.reloadData()
-                    })
-                },
-                onError: {(statusCode: Int, payload: Any) -> Void in
-                    print("Status: \(statusCode) => \(payload)")
-            })
-        }
+        service.searchByLocation(
+            FlickrAccuracy.Street,
+            lat: "\(lat)",
+            lon: "\(lon)",
+            page: 1,
+            perPage: 10,
+            onComplete: {(photos: Array<FlickrPhoto>!) -> Void in
+                for photo in photos {
+                    print("\(photo.name) => \(photo.url)")
+                }
+                
+                self.photos = photos
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.collectionView.reloadData()
+                })
+            },
+            onError: {(statusCode: Int, payload: Any) -> Void in
+                print("Status: \(statusCode) => \(payload)")
+        })
     }
     
     override func viewWillAppear(animated: Bool) {
+        collectionView.delegate = self
+        collectionView.dataSource = self
+        
         // We will create an MKPointAnnotation for each dictionary in "locations". The
         // point annotations will be stored in this array, and then provided to the map view.
         var annotations = [MKPointAnnotation]()
@@ -76,13 +76,16 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         self.mapView.setCenterCoordinate(coordinate, animated: true)
         
         self.newCollectionButton.enabled = false
-        
-        updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
+
+        // If pin has no photos, then retrieve them
+        if (pin.photos == nil || pin.photos?.count == 0) {
+            updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
+        } else {
+            self.collectionView.reloadData()
+        }
     }
     
     override func viewDidLoad() {
-        collectionView.delegate = self
-        collectionView.dataSource = self
     }
     
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
@@ -134,7 +137,11 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     }
     
     func collectionView(collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return photos.count
+        if (pin.photos == nil || pin.photos?.count == 0) {
+            return photos.count
+        }
+        
+        return (pin.photos?.count)!
     }
     
     @IBAction func newCollectionButtonPressed(sender: AnyObject) {
@@ -142,13 +149,18 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     }
 }
 
-class MapViewController : UIViewController, UIGestureRecognizerDelegate {
+class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapViewDelegate {
     var service = FlickrApiService(apiKey: FlickrConfig.apiKey)
     var pins : [AlbumPin]!
     
     @IBOutlet weak var mapView: MKMapView!
     
     override func viewWillAppear(animated: Bool) {
+        let gestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(MapViewController.handleTap(_:)))
+        gestureRecognizer.delegate = self
+        
+        self.mapView.addGestureRecognizer(gestureRecognizer)
+        self.mapView.delegate = self
         self.pins = DataLayerService.getObjectForEntityName("AlbumPin") as! [AlbumPin]
         
         for pin in pins {
@@ -156,17 +168,15 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate {
             coordinate.latitude = Double(pin.latitude!)
             coordinate.longitude = Double(pin.longitude!)
             
-            let annotation = MKPointAnnotation()
+            let annotation = AlbumPointAnnotation()
             annotation.coordinate = coordinate
+            annotation.title = "FART!"
+            annotation.pin = pin
             mapView.addAnnotation(annotation)
         }
     }
     
     override func viewDidLoad() {
-        let gestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(MapViewController.handleTap(_:)))
-        gestureRecognizer.delegate = self
-        mapView.addGestureRecognizer(gestureRecognizer)
-        
         super.viewDidLoad()
     }
     
@@ -179,6 +189,8 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate {
     }
     
     func handleTap(gestureReconizer: UILongPressGestureRecognizer) {
+        print("MAP VIEW TAPPED")
+        
         let location = gestureReconizer.locationInView(mapView)
         let coordinate = mapView.convertPoint(location, toCoordinateFromView: mapView)
         
@@ -186,18 +198,50 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate {
         pin.longitude = coordinate.longitude
         pin.latitude  = coordinate.latitude
         
-        self.pins.append(pin)
-        
-        let viewController = self.storyboard?.instantiateViewControllerWithIdentifier("PhotoCollectionViewController") as! PhotoCollectionViewController
-        viewController.pin = pin
-        
         DataLayerService.saveContext()
         
+        self.pins.append(pin)
+        
+        // Open view controller
+        let viewController = self.storyboard?.instantiateViewControllerWithIdentifier("PhotoCollectionViewController") as! PhotoCollectionViewController
+        viewController.pin = pin
         self.navigationController?.pushViewController(viewController, animated: true)
         
-        // Add annotation:
-        let annotation = MKPointAnnotation()
+        // Add annotation
+        let annotation = AlbumPointAnnotation()
         annotation.coordinate = coordinate
+        annotation.pin = pin
+        annotation.title = "FART"
         mapView.addAnnotation(annotation)
+    }
+    
+    func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView? {
+        let reuseId = "pin"
+        
+        var pinView = mapView.dequeueReusableAnnotationViewWithIdentifier(reuseId) as? MKPinAnnotationView
+        
+        if pinView == nil {
+            pinView = MKPinAnnotationView(annotation: annotation, reuseIdentifier: reuseId)
+            pinView!.canShowCallout = true
+            pinView!.rightCalloutAccessoryView = UIButton(type: .DetailDisclosure)
+        }
+        else {
+            pinView!.annotation = annotation
+        }
+        
+        return pinView
+    }
+    
+    func mapView(mapView: MKMapView, didSelectAnnotationView view: MKAnnotationView) {
+        print("ANNOTATION SELECTED")
+        
+        guard let annotation = view.annotation else { return }
+        let pinAnnotation = annotation as! AlbumPointAnnotation
+        
+        let viewController = self.storyboard?.instantiateViewControllerWithIdentifier("PhotoCollectionViewController") as! PhotoCollectionViewController
+        viewController.pin = pinAnnotation.pin
+        
+        self.navigationController?.pushViewController(viewController, animated: true)
+        mapView.deselectAnnotation(annotation, animated: true)
     }
 }

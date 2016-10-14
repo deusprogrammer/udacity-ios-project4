@@ -14,6 +14,7 @@
 		598ECE1C1D9DCF4E00969CA9 /* AlbumPinPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598ECE181D9DCF4E00969CA9 /* AlbumPinPhoto.swift */; };
 		598ECE1D1D9DCF4E00969CA9 /* AlbumPin+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598ECE191D9DCF4E00969CA9 /* AlbumPin+CoreDataProperties.swift */; };
 		598ECE1E1D9DCF4E00969CA9 /* AlbumPin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598ECE1A1D9DCF4E00969CA9 /* AlbumPin.swift */; };
+		59BBD1C21DB18A8D00D8BBA4 /* AlbumPointAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BBD1C11DB18A8D00D8BBA4 /* AlbumPointAnnotation.swift */; };
 		59CCB9EF1D99F5A900894438 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59CCB9EE1D99F5A900894438 /* AppDelegate.swift */; };
 		59CCB9F11D99F5A900894438 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59CCB9F01D99F5A900894438 /* ViewController.swift */; };
 		59CCB9F41D99F5A900894438 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 59CCB9F21D99F5A900894438 /* Main.storyboard */; };
@@ -53,6 +54,7 @@
 		598ECE181D9DCF4E00969CA9 /* AlbumPinPhoto.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AlbumPinPhoto.swift; sourceTree = "<group>"; };
 		598ECE191D9DCF4E00969CA9 /* AlbumPin+CoreDataProperties.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "AlbumPin+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		598ECE1A1D9DCF4E00969CA9 /* AlbumPin.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AlbumPin.swift; sourceTree = "<group>"; };
+		59BBD1C11DB18A8D00D8BBA4 /* AlbumPointAnnotation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AlbumPointAnnotation.swift; sourceTree = "<group>"; };
 		59CCB9EB1D99F5A900894438 /* Virtual Tourist.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Virtual Tourist.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		59CCB9EE1D99F5A900894438 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		59CCB9F01D99F5A900894438 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -152,6 +154,7 @@
 				598ECE201D9DCFAE00969CA9 /* Service */,
 				59CCB9EE1D99F5A900894438 /* AppDelegate.swift */,
 				59CCB9F01D99F5A900894438 /* ViewController.swift */,
+				59BBD1C11DB18A8D00D8BBA4 /* AlbumPointAnnotation.swift */,
 				59CCB9F21D99F5A900894438 /* Main.storyboard */,
 				59CCB9F51D99F5A900894438 /* Assets.xcassets */,
 				59CCB9F71D99F5A900894438 /* LaunchScreen.storyboard */,
@@ -318,6 +321,7 @@
 			files = (
 				598ECE1C1D9DCF4E00969CA9 /* AlbumPinPhoto.swift in Sources */,
 				59CCBA211D99FD2E00894438 /* NBRestClient.swift in Sources */,
+				59BBD1C21DB18A8D00D8BBA4 /* AlbumPointAnnotation.swift in Sources */,
 				598ECE1B1D9DCF4E00969CA9 /* AlbumPinPhoto+CoreDataProperties.swift in Sources */,
 				598ECE161D9DC7FF00969CA9 /* AlbumData.xcdatamodeld in Sources */,
 				59CCBA1D1D99F5D000894438 /* FlickrSDK.swift in Sources */,

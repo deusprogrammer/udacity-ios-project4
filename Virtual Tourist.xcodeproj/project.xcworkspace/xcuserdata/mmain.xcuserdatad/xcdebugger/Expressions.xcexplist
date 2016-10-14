@@ -3,6 +3,17 @@
    version = "1.0">
    <ContextStates>
       <ContextState
+         contextName = "PhotoCollectionViewController.collectionView(UICollectionView, cellForItemAtIndexPath : NSIndexPath) -&gt; UICollectionViewCell:ViewController.swift">
+         <PersistentStrings>
+            <PersistentString
+               value = "pinPhotos.count">
+            </PersistentString>
+            <PersistentString
+               value = "pinPhotos">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
          contextName = "PhotoCollectionViewController.updatePhotos(lat : Double, lon : Double) -&gt; ():ViewController.swift">
          <PersistentStrings>
             <PersistentString
@@ -11,13 +22,21 @@
          </PersistentStrings>
       </ContextState>
       <ContextState
-         contextName = "PhotoCollectionViewController.collectionView(UICollectionView, cellForItemAtIndexPath : NSIndexPath) -&gt; UICollectionViewCell:ViewController.swift">
+         contextName = "PhotoCollectionViewController.viewWillAppear(Bool) -&gt; ():ViewController.swift">
          <PersistentStrings>
             <PersistentString
-               value = "pinPhotos.count">
+               value = "pin.photos?.count">
             </PersistentString>
             <PersistentString
-               value = "pinPhotos">
+               value = "pin.photos">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "PhotoCollectionViewController.collectionView(UICollectionView, numberOfItemsInSection : Int) -&gt; Int:ViewController.swift">
+         <PersistentStrings>
+            <PersistentString
+               value = "">
             </PersistentString>
          </PersistentStrings>
       </ContextState>

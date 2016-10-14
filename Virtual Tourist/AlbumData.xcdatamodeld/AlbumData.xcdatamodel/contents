@@ -5,7 +5,7 @@
         <attribute name="longitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="NO" syncable="YES"/>
         <relationship name="photos" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="AlbumPinPhoto" inverseName="pin" inverseEntity="AlbumPinPhoto" syncable="YES"/>
     </entity>
-    <entity name="AlbumPinPhoto" representedClassName=".AlbumPinPhoto" parentEntity="AlbumPin" syncable="YES">
+    <entity name="AlbumPinPhoto" representedClassName=".AlbumPinPhoto" syncable="YES">
         <attribute name="image" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES" syncable="YES"/>
         <attribute name="title" attributeType="String" syncable="YES"/>
         <relationship name="pin" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="AlbumPin" inverseName="photos" inverseEntity="AlbumPin" syncable="YES"/>
