@@ -24,13 +24,12 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     var pin : AlbumPin!
     
     var photos : Array<FlickrPhoto> = []
-    var photosLoaded = 0
     
     @IBOutlet weak var mapView: MKMapView!
     @IBOutlet weak var collectionView: PhotoCollectionView!
     @IBOutlet weak var newCollectionButton: UIButton!
     
-    func loadAndPersistPhoto(photo : FlickrPhoto) {
+    func loadAndPersistPhoto(photo : FlickrPhoto, queue : dispatch_queue_t, asyncGroup : dispatch_group_t) {
         // Create image managed object and save it
         let pinPhoto : AlbumPinPhoto = DataLayerService.createObjectForName("AlbumPinPhoto") as! AlbumPinPhoto
         pinPhoto.title = photo.name
@@ -40,11 +39,9 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         
         // Load image asynchronously
         let url = NSURL(string: photo.url)
-        let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0)
-        dispatch_async(queue) { () -> Void in
+        dispatch_group_async(asyncGroup, queue) { () -> Void in
             let data = NSData(contentsOfURL: url!)
             
-            self.photosLoaded += 1
             dispatch_async(dispatch_get_main_queue(), {
                 pinPhoto.image = data
                 
@@ -58,9 +55,20 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         })
     }
     
+    func loadAndPersistPhotos(photos: Array<FlickrPhoto>) {
+        let group = dispatch_group_create()
+        let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0)
+        for photo in photos {
+            self.loadAndPersistPhoto(photo, queue: queue, asyncGroup: group)
+        }
+        dispatch_group_notify(group, queue, {() -> Void in
+            dispatch_async(dispatch_get_main_queue(), {
+                self.newCollectionButton.enabled = true
+            })
+        })
+    }
+    
     func updatePhotos(lat lat: Double, lon: Double) {
-        self.photosLoaded = 0
-        
         service.getRandomPhotosFromLocation(
             FlickrAccuracy.Street,
             lat: "\(lat)",
@@ -82,9 +90,7 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
                     return
                 }
                 
-                for photo in photos {
-                    self.loadAndPersistPhoto(photo)
-                }
+                self.loadAndPersistPhotos(photos)
 
                 dispatch_async(dispatch_get_main_queue(), {
                     self.collectionView.reloadData()
@@ -122,7 +128,7 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         self.mapView.addAnnotations(annotations)
         self.mapView.setCenterCoordinate(coordinate, animated: true)
         
-        //self.newCollectionButton.enabled = false
+        self.newCollectionButton.enabled = false
     }
     
     override func viewDidLoad() {
@@ -158,6 +164,8 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     }
     
     func collectionView(collectionView: UICollectionView, didSelectItemAtIndexPath indexPath: NSIndexPath) {
+        newCollectionButton.enabled = false
+        
         service.getRandomPhotosFromLocation(
             FlickrAccuracy.Street,
             lat: "\(pin.latitude!)",
@@ -174,7 +182,8 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
                 DataLayerService.deleteObject(photo)
                 DataLayerService.saveContext()
                 
-                self.loadAndPersistPhoto(photos[0])
+                self.loadAndPersistPhotos(photos)
+                
                 dispatch_async(dispatch_get_main_queue(), {
                     self.collectionView.reloadData()
                 })
@@ -193,6 +202,8 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     }
     
     @IBAction func newCollectionButtonPressed(sender: AnyObject) {
+        newCollectionButton.enabled = false
+        
         // Delete all photos from this pin and load new ones
         updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
     }
