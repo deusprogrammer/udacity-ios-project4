@@ -39,6 +39,21 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
             page: 1,
             perPage: 10,
             onComplete: {(photos: Array<FlickrPhoto>!) -> Void in
+                if photos.count == 0 {
+                    let alertController = UIAlertController(title: "No images found", message: "No images found at this location, try placing a pin elsewhere.", preferredStyle: .Alert)
+                    let OKAction = UIAlertAction(title: "OK", style: .Default, handler: {(action: UIAlertAction) in
+                        dispatch_async(dispatch_get_main_queue(), {
+                            DataLayerService.deleteObject(self.pin)
+                            DataLayerService.saveContext()
+                            self.navigationController?.popViewControllerAnimated(true)
+                        })
+                    })
+                    alertController.addAction(OKAction)
+                    
+                    self.presentViewController(alertController, animated: true, completion: nil)
+                    return
+                }
+                
                 for photo in photos {
                     print("\(photo.name) => \(photo.url)")
                 }
@@ -76,16 +91,15 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         self.mapView.setCenterCoordinate(coordinate, animated: true)
         
         self.newCollectionButton.enabled = false
-
+    }
+    
+    override func viewDidLoad() {
         // If pin has no photos, then retrieve them
         if (pin.photos == nil || pin.photos?.count == 0) {
             updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
         } else {
             self.collectionView.reloadData()
         }
-    }
-    
-    override func viewDidLoad() {
     }
     
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
@@ -137,7 +151,7 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     }
     
     func collectionView(collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        if (pin.photos == nil || pin.photos?.count == 0) {
+        if pin.photos == nil || pin.photos?.count == 0 {
             return photos.count
         }
         
@@ -156,6 +170,7 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
     @IBOutlet weak var mapView: MKMapView!
     
     override func viewWillAppear(animated: Bool) {
+        self.mapView.removeAnnotations(mapView.annotations)
         let gestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(MapViewController.handleTap(_:)))
         gestureRecognizer.delegate = self
         

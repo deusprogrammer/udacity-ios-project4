@@ -71,6 +71,10 @@ class DataLayerService {
         }
     }
     
+    class func deleteObject(object : NSManagedObject) {
+        managedObjectContext.deleteObject(object)
+    }
+    
     class func createObjectForName(entityName: String) -> NSManagedObject {
         return NSEntityDescription.insertNewObjectForEntityForName(entityName, inManagedObjectContext: managedObjectContext)
     }
