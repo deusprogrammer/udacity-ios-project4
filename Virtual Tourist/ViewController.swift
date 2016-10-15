@@ -188,24 +188,33 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
         super.didReceiveMemoryWarning()
     }
     
-    func handleTap(gestureReconizer: UILongPressGestureRecognizer) {
-        print("MAP VIEW TAPPED")
-        
-        let location = gestureReconizer.locationInView(mapView)
-        let coordinate = mapView.convertPoint(location, toCoordinateFromView: mapView)
-        
-        let pin = DataLayerService.createObjectForName("AlbumPin") as! AlbumPin
-        pin.longitude = coordinate.longitude
-        pin.latitude  = coordinate.latitude
-        
-        DataLayerService.saveContext()
-        
-        self.pins.append(pin)
-        
-        // Open view controller
-        let viewController = self.storyboard?.instantiateViewControllerWithIdentifier("PhotoCollectionViewController") as! PhotoCollectionViewController
-        viewController.pin = pin
-        self.navigationController?.pushViewController(viewController, animated: true)
+    func handleTap(sender: UILongPressGestureRecognizer) {
+        if (sender.state == .Ended) {
+            print("MAP VIEW TAPPED")
+
+            let location = sender.locationInView(mapView)
+            let coordinate = mapView.convertPoint(location, toCoordinateFromView: mapView)
+            
+            let pin = DataLayerService.createObjectForName("AlbumPin") as! AlbumPin
+            pin.longitude = coordinate.longitude
+            pin.latitude  = coordinate.latitude
+            
+            DataLayerService.saveContext()
+            
+            self.pins.append(pin)
+            
+            // Open view controller
+            let viewController = self.storyboard?.instantiateViewControllerWithIdentifier("PhotoCollectionViewController") as! PhotoCollectionViewController
+            viewController.pin = pin
+            self.navigationController?.pushViewController(viewController, animated: true)
+            
+            // Add annotation
+            let annotation = AlbumPointAnnotation()
+            annotation.coordinate = coordinate
+            annotation.pin = pin
+            annotation.title = "Album"
+            mapView.addAnnotation(annotation)
+        }
     }
     
     func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView? {
