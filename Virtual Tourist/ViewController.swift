@@ -30,7 +30,7 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     @IBOutlet weak var newCollectionButton: UIButton!
     
     func loadAndPersistPhoto(photo : FlickrPhoto, queue : dispatch_queue_t, asyncGroup : dispatch_group_t) {
-        // Create image managed object and save it
+        // Create image managed object
         let pinPhoto : AlbumPinPhoto = DataLayerService.createObjectForName("AlbumPinPhoto") as! AlbumPinPhoto
         pinPhoto.title = photo.name
         pinPhoto.image = loadingImageData
@@ -129,15 +129,17 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         self.mapView.setCenterCoordinate(coordinate, animated: true)
         
         self.newCollectionButton.enabled = false
-    }
-    
-    override func viewDidLoad() {
+        
         // If pin has no photos, then retrieve them
         if (pin.photos == nil || pin.photos?.count == 0) {
             updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
         } else {
             self.collectionView.reloadData()
+            self.newCollectionButton.enabled = true
         }
+    }
+    
+    override func viewDidLoad() {
     }
     
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
@@ -145,9 +147,6 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         
         // Set image view to load image keeping aspect ratio
         cell.imageView.contentMode = UIViewContentMode.ScaleAspectFit
-        
-        // Set image to loading image
-        cell.imageView.image = UIImage(named: "loading")
         
         // If the photo is persisted, then load it from core data
         var pinPhotos : [AlbumPinPhoto] = pin.photos?.allObjects as! [AlbumPinPhoto]
@@ -164,47 +163,27 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     }
     
     func collectionView(collectionView: UICollectionView, didSelectItemAtIndexPath indexPath: NSIndexPath) {
-        newCollectionButton.enabled = false
-        
-        service.getRandomPhotosFromLocation(
-            FlickrAccuracy.Street,
-            lat: "\(pin.latitude!)",
-            lon: "\(pin.longitude!)",
-            pageSize: 1,
-            onComplete: {(photos: Array<FlickrPhoto>!) -> Void in
-                if photos == nil || photos.count <= 0 {
-                    return
-                }
-                
-                // Delete this photo
-                var pinPhotos : [AlbumPinPhoto] = self.pin.photos?.allObjects as! [AlbumPinPhoto]
-                let photo = pinPhotos[indexPath.row]
-                DataLayerService.deleteObject(photo)
-                DataLayerService.saveContext()
-                
-                self.loadAndPersistPhotos(photos)
-                
-                dispatch_async(dispatch_get_main_queue(), {
-                    self.collectionView.reloadData()
-                })
-            },
-            onError: {(statusCode: Int, payload: Any) -> Void in
-                var dict = payload as! Dictionary<String, String>
-                let alertController = UIAlertController(title: "Image load failure", message: "Images failed to load: \(dict["error"])", preferredStyle: .Alert)
-                let OKAction = UIAlertAction(title: "OK", style: .Default, handler: nil)
-                alertController.addAction(OKAction)
-                
-                self.presentViewController(alertController, animated: true, completion: nil)
-            })
-        
+        // Delete this photo
+        var pinPhotos : [AlbumPinPhoto] = self.pin.photos?.allObjects as! [AlbumPinPhoto]
+        let photo = pinPhotos[indexPath.row]
+        DataLayerService.deleteObject(photo)
         DataLayerService.saveContext()
-        collectionView.reloadData()
+        
+        dispatch_async(dispatch_get_main_queue(), {
+            self.collectionView.reloadData()
+        })
     }
     
     @IBAction func newCollectionButtonPressed(sender: AnyObject) {
         newCollectionButton.enabled = false
         
         // Delete all photos from this pin and load new ones
+        for photo in pin.photos! {
+            DataLayerService.deleteObject(photo as! NSManagedObject)
+        }
+        DataLayerService.saveContext()
+        
+        // Get new photos
         updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
     }
 }
@@ -249,6 +228,27 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
         super.didReceiveMemoryWarning()
     }
     
+    func loadPins() {
+        let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0)
+        dispatch_async(queue) { () -> Void in
+            self.pins = DataLayerService.getObjectForEntityName("AlbumPin") as! [AlbumPin]
+            for pin in self.pins {
+                var coordinate = CLLocationCoordinate2D()
+                coordinate.latitude = Double(pin.latitude!)
+                coordinate.longitude = Double(pin.longitude!)
+                
+                let annotation = AlbumPointAnnotation()
+                annotation.coordinate = coordinate
+                annotation.title = "Album"
+                annotation.pin = pin
+                
+                dispatch_async(dispatch_get_main_queue(), {
+                    self.mapView.addAnnotation(annotation)
+                })
+            }
+        }
+    }
+    
     func handleTap(sender: UILongPressGestureRecognizer) {
         if (sender.state == .Ended) {
             print("MAP VIEW TAPPED")
@@ -264,11 +264,6 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
             DataLayerService.saveContext()
             
             self.pins.append(pin)
-            
-            // Open view controller
-            let viewController = self.storyboard?.instantiateViewControllerWithIdentifier("PhotoCollectionViewController") as! PhotoCollectionViewController
-            viewController.pin = pin
-            self.navigationController?.pushViewController(viewController, animated: true)
             
             // Add annotation
             let annotation = AlbumPointAnnotation()
@@ -286,6 +281,7 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
         
         if pinView == nil {
             pinView = MKPinAnnotationView(annotation: annotation, reuseIdentifier: reuseId)
+            pinView!.animatesDrop = true
             pinView!.canShowCallout = true
             pinView!.rightCalloutAccessoryView = UIButton(type: .DetailDisclosure)
         }

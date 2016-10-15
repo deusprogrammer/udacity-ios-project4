@@ -66,7 +66,6 @@ class DataLayerService {
             } catch {
                 let nserror = error as NSError
                 NSLog("Unresolved error \(nserror), \(nserror.userInfo)")
-                abort()
             }
         }
     }
