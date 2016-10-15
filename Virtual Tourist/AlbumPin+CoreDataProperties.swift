@@ -13,9 +13,8 @@ import Foundation
 import CoreData
 
 extension AlbumPin {
-
+    @NSManaged var createdOn: NSDate?
     @NSManaged var latitude: NSNumber?
     @NSManaged var longitude: NSNumber?
     @NSManaged var photos: NSSet?
-
 }

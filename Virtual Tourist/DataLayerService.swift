@@ -81,6 +81,7 @@ class DataLayerService {
     
     class func getObjectForEntityName(entityName: String) -> [AnyObject] {
         let fetchRequest = NSFetchRequest(entityName: entityName)
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "createdOn", ascending: true)]
         
         do {
             return try managedObjectContext.executeFetchRequest(fetchRequest)

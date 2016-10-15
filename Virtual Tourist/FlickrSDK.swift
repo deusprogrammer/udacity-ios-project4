@@ -37,12 +37,12 @@ class FlickrApiService {
         self.apiKey = apiKey
     }
     
-    func searchByLocation(
+    func getPhotosFromLocation(
         accuracy : FlickrAccuracy,
         lat : String,
         lon: String,
         page: Int,
-        perPage: Int,
+        pageSize: Int,
         onComplete : ((photos : Array<FlickrPhoto>!) -> Void)! = nil,
         onError: ((statusCode: Int, payload: Any) -> Void)! = nil) {
         let request = NBRestClient.get(
@@ -55,7 +55,7 @@ class FlickrApiService {
                 "lat": lat,
                 "lon": lon,
                 "page": page,
-                "per_page": perPage,
+                "per_page": pageSize,
                 "format": "json",
                 "nojsoncallback": 1
             ],
@@ -132,5 +132,115 @@ class FlickrApiService {
                 onComplete(photos: photos)
             }
         })
+    }
+    
+    func getPageCount(
+        accuracy : FlickrAccuracy,
+        lat : String,
+        lon: String,
+        pageSize: Int,
+        onComplete : ((count : Int!) -> Void)! = nil,
+        onError: ((statusCode: Int, payload: Any) -> Void)! = nil) {
+        let request = NBRestClient.get(
+            hostname: "api.flickr.com",
+            uri: "/services/rest",
+            query: [
+                "method": "flickr.photos.search",
+                "api_key": self.apiKey,
+                "accuracy": accuracy.rawValue,
+                "lat": lat,
+                "lon": lon,
+                "page": 1,
+                "per_page": pageSize,
+                "format": "json",
+                "nojsoncallback": 1
+            ],
+            ssl: true)
+        
+        request.sendAsync({(response: NBRestResponse!) -> Void in
+            // If error is set, display it and fail
+            if (response.error != nil) {
+                print(response.error?.localizedDescription)
+                let errorMap = [
+                    "error": (response.error?.localizedDescription)!
+                    ] as Dictionary<String, AnyObject>
+                
+                if (onError != nil) {
+                    onError(
+                        statusCode: 0,
+                        payload: errorMap
+                    )
+                }
+                return
+            }
+            
+            // Deserialize json
+            var data : AnyObject! = nil
+            do {
+                try data = NSJSONSerialization.JSONObjectWithData(response.body, options: .AllowFragments)
+            } catch {
+                if (onError != nil) {
+                    onError(
+                        statusCode: 0,
+                        payload: [
+                            "error": "JSON Parsing Error: \(error)"
+                        ]
+                    )
+                }
+                return
+            }
+            
+            print("Status Code:  \(response.statusCode)")
+            
+            // If status code not 201, then fail
+            if (response.statusCode != 200) {
+                print("HTTP request failed")
+                if (onError != nil) {
+                    onError(
+                        statusCode: response.statusCode,
+                        payload: data
+                    )
+                }
+                return
+            }
+            
+            // Acquire the results from the results key at the root of the returned object
+            let count = JSONHelper.search("/photos/pages", object: data) as! Int
+            
+            if (onComplete != nil) {
+                onComplete(count: count)
+                return
+            }
+        })
+    }
+    
+    func getRandomPhotosFromLocation(
+        accuracy : FlickrAccuracy,
+        lat : String,
+        lon: String,
+        pageSize: Int,
+        onComplete : ((photos : Array<FlickrPhoto>!) -> Void)! = nil,
+        onError: ((statusCode: Int, payload: Any) -> Void)! = nil) {
+        
+        self.getPageCount(
+            accuracy,
+            lat: lat,
+            lon: lon,
+            pageSize: pageSize,
+            onComplete: {(count: Int!) -> Void in
+                // Acquire random page number
+                let randomPage = Int(arc4random_uniform(UInt32(count)) + 1)
+                
+                // Acquire random photos from Flickr
+                self.getPhotosFromLocation(
+                    FlickrAccuracy.Street,
+                    lat: lat,
+                    lon: lon,
+                    page: randomPage,
+                    pageSize: pageSize,
+                    onComplete: onComplete,
+                    onError: onError)
+            },
+            onError: onError)
     }
 }

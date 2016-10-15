@@ -57,5 +57,13 @@
             </PersistentString>
          </PersistentStrings>
       </ContextState>
+      <ContextState
+         contextName = "FlickrApiService.(getRandomPhoto(FlickrAccuracy, lat : String, lon : String, onComplete : (photo : FlickrPhoto!) -&gt; ()!, onError : (statusCode : Int, payload : protocol&lt;&gt;) -&gt; ()!) -&gt; ()).(closure #1):FlickrSDK.swift">
+         <PersistentStrings>
+            <PersistentString
+               value = "data as! Dictionary&lt;String, AnyObject&gt;">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
    </ContextStates>
 </VariablesViewState>

@@ -13,9 +13,8 @@ import Foundation
 import CoreData
 
 extension AlbumPinPhoto {
-
+    @NSManaged var createdOn: NSDate?
     @NSManaged var title: String?
     @NSManaged var image: NSData?
     @NSManaged var pin: NSManagedObject?
-
 }
