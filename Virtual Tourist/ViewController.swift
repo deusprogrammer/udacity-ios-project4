@@ -264,7 +264,6 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
     
     func controllerDidChangeContent(controller: NSFetchedResultsController) {
         self.collectionView.reloadData()
-        self.newCollectionButton.enabled = true
     }
 
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
@@ -308,6 +307,7 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
 class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapViewDelegate {
     var service = FlickrApiService(apiKey: FlickrConfig.apiKey)
     var pins : [AlbumPin]!
+    var context = DataLayerService.managedObjectContext
     
     @IBOutlet weak var mapView: MKMapView!
     
@@ -320,59 +320,70 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
         self.mapView.delegate = self
         loadPins()
     }
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-    }
-    
-    override func viewWillDisappear(animated: Bool) {
-        super.viewWillAppear(animated)
-    }
-    
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
+
+    // Display an error modal
+    func displayError(title: String, message: String, completionHandler: (() -> Void)! = nil) {
+        let alertController = UIAlertController(title: title, message: message, preferredStyle: .Alert)
+        let OKAction = UIAlertAction(title: "OK", style: .Default, handler: {(action: UIAlertAction) in
+            if (completionHandler != nil) {
+                completionHandler()
+            }
+        })
+        alertController.addAction(OKAction)
+        
+        self.presentViewController(alertController, animated: true, completion: nil)
     }
     
     // Load all the pins asynchronously
     func loadPins() {
-        let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0)
-        dispatch_async(queue) { () -> Void in
-            // Fetch all persisted pins
-            self.pins = DataLayerService.getObjectForEntityName("AlbumPin") as! [AlbumPin]
-            
-            // Load each pin into the map view
-            for pin in self.pins {
-                var coordinate = CLLocationCoordinate2D()
-                coordinate.latitude = Double(pin.latitude!)
-                coordinate.longitude = Double(pin.longitude!)
+        // Fetch all persisted pins
+        let fetchRequest = NSFetchRequest(entityName: "AlbumPin")
+        
+        let asynchronousFetchRequest = NSAsynchronousFetchRequest(fetchRequest: fetchRequest) { (asynchronousFetchResult) -> Void in
+            dispatch_async(dispatch_get_main_queue(), { () -> Void in
+                self.pins = asynchronousFetchResult.finalResult as! [AlbumPin]
                 
-                let annotation = AlbumPointAnnotation()
-                annotation.coordinate = coordinate
-                annotation.title = "Album"
-                annotation.pin = pin
-                
-                dispatch_async(dispatch_get_main_queue(), {
+                // Load each pin into the map view
+                for pin in self.pins {
+                    var coordinate = CLLocationCoordinate2D()
+                    coordinate.latitude = Double(pin.latitude!)
+                    coordinate.longitude = Double(pin.longitude!)
+                    
+                    let annotation = AlbumPointAnnotation()
+                    annotation.coordinate = coordinate
+                    annotation.title = "Album"
+                    annotation.pin = pin
+                    
                     self.mapView.addAnnotation(annotation)
-                })
-            }
+                }
+            })
+        }
+        
+        do {
+            try context.executeRequest(asynchronousFetchRequest)
+        } catch {
+            self.displayError("Core Data Error", message: "Unable to load pins")
         }
     }
     
     func handleTap(sender: UILongPressGestureRecognizer) {
         // On the end of a long tap gesture, create and store a new pin
-        if (sender.state == .Ended) {
-            print("MAP VIEW TAPPED")
-
+        if (sender.state == .Began) {
             // Retrieve the coordinates of where we tapped
             let location = sender.locationInView(mapView)
             let coordinate = mapView.convertPoint(location, toCoordinateFromView: mapView)
             
             // Create new album pin object and persist it
-            let pin = DataLayerService.createObjectForName("AlbumPin") as! AlbumPin
+            let pin = NSEntityDescription.insertNewObjectForEntityForName("AlbumPin", inManagedObjectContext: context) as! AlbumPin
             pin.longitude = coordinate.longitude
             pin.latitude  = coordinate.latitude
             pin.createdOn = NSDate()
-            DataLayerService.saveContext()
+            
+            do {
+                try context.save()
+            } catch {
+                self.displayError("Core Data Error", message: "Unable to save pin")
+            }
             
             // Add the pin to our list of pins
             self.pins.append(pin)
@@ -406,8 +417,6 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
     }
     
     func mapView(mapView: MKMapView, didSelectAnnotationView view: MKAnnotationView) {
-        print("ANNOTATION SELECTED")
-        
         // Retrieve the selected pin
         guard let annotation = view.annotation else { return }
         let pinAnnotation = annotation as! AlbumPointAnnotation

@@ -56,36 +56,4 @@ class DataLayerService {
         managedObjectContext.persistentStoreCoordinator = coordinator
         return managedObjectContext
     }()
-    
-    // MARK: - Core Data Saving support
-    
-    class func saveContext () {
-        if managedObjectContext.hasChanges {
-            do {
-                try managedObjectContext.save()
-            } catch {
-                let nserror = error as NSError
-                NSLog("Unresolved error \(nserror), \(nserror.userInfo)")
-            }
-        }
-    }
-    
-    class func deleteObject(object : NSManagedObject) {
-        managedObjectContext.deleteObject(object)
-    }
-    
-    class func createObjectForName(entityName: String) -> NSManagedObject {
-        return NSEntityDescription.insertNewObjectForEntityForName(entityName, inManagedObjectContext: managedObjectContext)
-    }
-    
-    class func getObjectForEntityName(entityName: String) -> [AnyObject] {
-        let fetchRequest = NSFetchRequest(entityName: entityName)
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "createdOn", ascending: true)]
-        
-        do {
-            return try managedObjectContext.executeFetchRequest(fetchRequest)
-        } catch {
-            return []
-        }
-    }
 }
