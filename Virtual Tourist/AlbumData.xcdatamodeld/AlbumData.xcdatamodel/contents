@@ -10,10 +10,11 @@
         <attribute name="createdOn" attributeType="Date" usesScalarValueType="NO" syncable="YES"/>
         <attribute name="image" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES" syncable="YES"/>
         <attribute name="title" attributeType="String" syncable="YES"/>
+        <attribute name="url" optional="YES" attributeType="String" syncable="YES"/>
         <relationship name="pin" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="AlbumPin" inverseName="photos" inverseEntity="AlbumPin" syncable="YES"/>
     </entity>
     <elements>
         <element name="AlbumPin" positionX="297" positionY="-9" width="128" height="105"/>
-        <element name="AlbumPinPhoto" positionX="-54" positionY="-9" width="128" height="105"/>
+        <element name="AlbumPinPhoto" positionX="-54" positionY="-9" width="128" height="120"/>
     </elements>
 </model>

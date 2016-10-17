@@ -17,92 +17,204 @@ class PhotoCollectionItem : UICollectionViewCell {
 class PhotoCollectionView : UICollectionView {
 }
 
-class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate, UICollectionViewDataSource {
+class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate, UICollectionViewDataSource, NSFetchedResultsControllerDelegate {
     var service = FlickrApiService(apiKey: FlickrConfig.apiKey)
     var loadingImageData = UIImagePNGRepresentation(UIImage(named: "loading")!)
+    internal var mainContext : NSManagedObjectContext = DataLayerService.managedObjectContext
     
     var pin : AlbumPin!
-    
-    var photos : Array<FlickrPhoto> = []
     
     @IBOutlet weak var mapView: MKMapView!
     @IBOutlet weak var collectionView: PhotoCollectionView!
     @IBOutlet weak var newCollectionButton: UIButton!
     
-    func loadAndPersistPhoto(photo : FlickrPhoto, queue : dispatch_queue_t, asyncGroup : dispatch_group_t) {
-        // Create image managed object
-        let pinPhoto : AlbumPinPhoto = DataLayerService.createObjectForName("AlbumPinPhoto") as! AlbumPinPhoto
-        pinPhoto.title = photo.name
-        pinPhoto.image = loadingImageData
-        pinPhoto.createdOn = NSDate()
-        pinPhoto.pin = pin
+    lazy var fetchedResultsController : NSFetchedResultsController = {
+        let fetchRequest = NSFetchRequest(entityName: "AlbumPinPhoto")
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "createdOn", ascending: true)]
+        fetchRequest.predicate = NSPredicate(format: "pin == %@", argumentArray: [self.pin])
         
-        // Load image asynchronously
-        let url = NSURL(string: photo.url)
-        dispatch_group_async(asyncGroup, queue) { () -> Void in
+        let frc = NSFetchedResultsController(
+            fetchRequest: fetchRequest,
+            managedObjectContext: self.mainContext,
+            sectionNameKeyPath: nil,
+            cacheName: nil)
+        
+        frc.delegate = self
+        
+        return frc
+    }()
+    
+    // Display an error modal
+    func displayError(title: String, message: String, completionHandler: (() -> Void)! = nil) {
+        let alertController = UIAlertController(title: title, message: message, preferredStyle: .Alert)
+        let OKAction = UIAlertAction(title: "OK", style: .Default, handler: {(action: UIAlertAction) in
+            if (completionHandler != nil) {
+                completionHandler()
+            }
+        })
+        alertController.addAction(OKAction)
+        
+        self.presentViewController(alertController, animated: true, completion: nil)
+    }
+    
+    // Create a photo with a temporary loading image while we fetch the image from flickr
+    func createPhoto(photo: FlickrPhoto, backgroundContext: NSManagedObjectContext) -> AlbumPinPhoto! {
+        do {
+            // Create image
+            let pinPhoto = NSEntityDescription.insertNewObjectForEntityForName("AlbumPinPhoto", inManagedObjectContext: backgroundContext) as! AlbumPinPhoto
+            let pin = try backgroundContext.existingObjectWithID(self.pin.objectID) as! AlbumPin
+            
+            // Store url to fetch later and set temporary loading image
+            pinPhoto.title = photo.name
+            pinPhoto.createdOn = NSDate()
+            pinPhoto.image = self.loadingImageData
+            pinPhoto.url = photo.url
+            pinPhoto.pin = pin
+            
+            return pinPhoto
+        } catch {
+            self.displayError("Core Data Error", message: "Failed to create photos")
+        }
+        
+        return nil
+    }
+    
+    // Fetch the image for an album pin photo and store it
+    func fetchImage(photo: AlbumPinPhoto, backgroundContext: NSManagedObjectContext) {
+        do {
+            // Load image asynchronously
+            let url = NSURL(string: photo.url!)
             let data = NSData(contentsOfURL: url!)
             
-            dispatch_async(dispatch_get_main_queue(), {
-                pinPhoto.image = data
-                
-                DataLayerService.saveContext()
-                self.collectionView.reloadData()
-            })
+            photo.image = data
+            try backgroundContext.save()
+        } catch {
+            self.displayError("Core Data Error", message: "Failed to store fetched photo")
         }
-        
-        dispatch_async(dispatch_get_main_queue(), {
-            DataLayerService.saveContext()
-        })
     }
     
+    // Load and persist a list of flickr photos
     func loadAndPersistPhotos(photos: Array<FlickrPhoto>) {
-        let group = dispatch_group_create()
-        let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0)
-        for photo in photos {
-            self.loadAndPersistPhoto(photo, queue: queue, asyncGroup: group)
-        }
-        dispatch_group_notify(group, queue, {() -> Void in
-            dispatch_async(dispatch_get_main_queue(), {
-                self.newCollectionButton.enabled = true
-            })
+        let backgroundContext = NSManagedObjectContext(concurrencyType: .PrivateQueueConcurrencyType)
+        backgroundContext.parentContext = mainContext
+        
+        var pinPhotos : [AlbumPinPhoto] = []
+        
+        backgroundContext.performBlockAndWait({
+            do {
+                // Persist photos with temporary loading image
+                for photo in photos {
+                    let pinPhoto = self.createPhoto(photo, backgroundContext: backgroundContext)
+                    pinPhotos.append(pinPhoto)
+                }
+                try backgroundContext.save()
+                
+                // Fetch images
+                for pinPhoto in pinPhotos {
+                    self.fetchImage(pinPhoto, backgroundContext: backgroundContext)
+                }
+                
+                // Persist parent context
+                self.mainContext.performBlock({
+                    do {
+                        try self.mainContext.save()
+                    } catch {
+                        self.displayError("Core Data Error", message: "Failed to store photos")
+                    }
+                })
+            } catch {
+                print(error)
+                self.displayError("Core Data Error", message: "Failed to store photos")
+            }
+        })
+
+        dispatch_async(dispatch_get_main_queue(), {
+            self.newCollectionButton.enabled = true
         })
     }
     
+    // Clear all photos related to this collection view's pin
+    func clearPhotos() {
+        let backgroundContext = NSManagedObjectContext(concurrencyType: .PrivateQueueConcurrencyType)
+        backgroundContext.parentContext = mainContext
+        
+        backgroundContext.performBlockAndWait({
+            do {
+                let pin = try backgroundContext.existingObjectWithID(self.pin.objectID) as! AlbumPin
+                
+                // Delete photos
+                for photo in pin.photos! {
+                    backgroundContext.deleteObject(photo as! NSManagedObject)
+                }
+                try backgroundContext.save()
+                
+                // Persist parent context
+                self.mainContext.performBlock({
+                    do {
+                        try self.mainContext.save()
+                    } catch {
+                        print(error)
+                        self.displayError("Core Data Error", message: "Failed to clear photos")
+                    }
+                })
+            } catch {
+                print(error)
+                self.displayError("Core Data Error", message: "Failed to clear photos")
+            }
+        })
+    }
+    
+    // Delete a single album pin photo
+    func deletePhoto(photo: AlbumPinPhoto) {
+        let backgroundContext = NSManagedObjectContext(concurrencyType: .PrivateQueueConcurrencyType)
+        backgroundContext.parentContext = mainContext
+        
+        backgroundContext.performBlockAndWait({
+            do {
+                // Delete photo
+                let ctxPhoto = try backgroundContext.existingObjectWithID(photo.objectID) as! AlbumPinPhoto
+                backgroundContext.deleteObject(ctxPhoto as NSManagedObject)
+                try backgroundContext.save()
+                
+                // Persist parent context
+                self.mainContext.performBlock({
+                    do {
+                        try self.mainContext.save()
+                    } catch {
+                        print(error)
+                        self.displayError("Core Data Error", message: "Failed to delete photo")
+                    }
+                })
+            } catch {
+                print(error)
+                self.displayError("Core Data Error", message: "Failed to delete photo")
+            }
+        })
+    }
+    
+    // Pull new photos from flickr for a given latitude and longitude at street level
     func updatePhotos(lat lat: Double, lon: Double) {
         service.getRandomPhotosFromLocation(
             FlickrAccuracy.Street,
             lat: "\(lat)",
             lon: "\(lon)",
-            pageSize: 10,
+            pageSize: 12,
             onComplete: {(photos: Array<FlickrPhoto>!) -> Void in
+                // If no photos here, then display error and close collection view
                 if photos.count == 0 {
-                    let alertController = UIAlertController(title: "No images found", message: "No images found at this location, try placing a pin elsewhere.", preferredStyle: .Alert)
-                    let OKAction = UIAlertAction(title: "OK", style: .Default, handler: {(action: UIAlertAction) in
+                    self.displayError("No images found", message: "No images at this location, try placing a pin elsewhere", completionHandler: {
                         dispatch_async(dispatch_get_main_queue(), {
-                            DataLayerService.deleteObject(self.pin)
-                            DataLayerService.saveContext()
                             self.navigationController?.popViewControllerAnimated(true)
                         })
                     })
-                    alertController.addAction(OKAction)
-                    
-                    self.presentViewController(alertController, animated: true, completion: nil)
                     return
                 }
-                
-                self.loadAndPersistPhotos(photos)
 
-                dispatch_async(dispatch_get_main_queue(), {
-                    self.collectionView.reloadData()
-                })
+                self.loadAndPersistPhotos(photos)
             },
             onError: {(statusCode: Int, payload: Any) -> Void in
                 var dict = payload as! Dictionary<String, String>
-                let alertController = UIAlertController(title: "Image load failure", message: "Images failed to load: \(dict["error"])", preferredStyle: .Alert)
-                let OKAction = UIAlertAction(title: "OK", style: .Default, handler: nil)
-                alertController.addAction(OKAction)
-                
-                self.presentViewController(alertController, animated: true, completion: nil)
+                self.displayError("Image load failure", message: "Images failed to load: \(dict["error"])")
         })
     }
     
@@ -128,63 +240,68 @@ class PhotoCollectionViewController : UIViewController, UICollectionViewDelegate
         self.mapView.addAnnotations(annotations)
         self.mapView.setCenterCoordinate(coordinate, animated: true)
         
-        self.newCollectionButton.enabled = false
+        self.newCollectionButton.enabled = true
         
-        // If pin has no photos, then retrieve them
-        if (pin.photos == nil || pin.photos?.count == 0) {
-            updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
-        } else {
-            self.collectionView.reloadData()
-            self.newCollectionButton.enabled = true
+        do {
+            // If pin has no photos, then retrieve them
+            if (pin.photos == nil || pin.photos?.count == 0) {
+                self.newCollectionButton.enabled = false
+                updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
+            }
+            
+            try fetchedResultsController.performFetch()
+        } catch {
+            print(error)
         }
     }
     
     override func viewDidLoad() {
     }
     
+    func numberOfSectionsInCollectionView(collectionView: UICollectionView) -> Int {
+        return 1
+    }
+    
+    func controllerDidChangeContent(controller: NSFetchedResultsController) {
+        self.collectionView.reloadData()
+        self.newCollectionButton.enabled = true
+    }
+
     func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCellWithReuseIdentifier("PhotoCollectionCell", forIndexPath:  indexPath) as! PhotoCollectionItem
         
         // Set image view to load image keeping aspect ratio
         cell.imageView.contentMode = UIViewContentMode.ScaleAspectFit
         
-        // If the photo is persisted, then load it from core data
-        var pinPhotos : [AlbumPinPhoto] = pin.photos?.allObjects as! [AlbumPinPhoto]
-        if (pinPhotos.count > indexPath.row) {
-            cell.imageView.image = UIImage(data: pinPhotos[indexPath.row].image!)
-            return cell
-        }
-        
+        // Load image into cell
+        let photo = fetchedResultsController.objectAtIndexPath(indexPath) as! AlbumPinPhoto
+        cell.imageView.image = UIImage(data: photo.image!)
+
         return cell
     }
     
     func collectionView(collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return pin.photos!.count
+        if let sections = fetchedResultsController.sections {
+            let currentSection = sections[section]
+            return currentSection.numberOfObjects
+        }
+        
+        return 0
     }
     
     func collectionView(collectionView: UICollectionView, didSelectItemAtIndexPath indexPath: NSIndexPath) {
-        // Delete this photo
-        var pinPhotos : [AlbumPinPhoto] = self.pin.photos?.allObjects as! [AlbumPinPhoto]
-        let photo = pinPhotos[indexPath.row]
-        DataLayerService.deleteObject(photo)
-        DataLayerService.saveContext()
-        
-        dispatch_async(dispatch_get_main_queue(), {
-            self.collectionView.reloadData()
-        })
+        let photo = fetchedResultsController.objectAtIndexPath(indexPath) as! AlbumPinPhoto
+        self.deletePhoto(photo)
     }
     
     @IBAction func newCollectionButtonPressed(sender: AnyObject) {
         newCollectionButton.enabled = false
         
         // Delete all photos from this pin and load new ones
-        for photo in pin.photos! {
-            DataLayerService.deleteObject(photo as! NSManagedObject)
-        }
-        DataLayerService.saveContext()
+        self.clearPhotos()
         
         // Get new photos
-        updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
+        self.updatePhotos(lat: Double(self.pin.latitude!), lon: Double(self.pin.longitude!))
     }
 }
 
@@ -201,19 +318,7 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
         
         self.mapView.addGestureRecognizer(gestureRecognizer)
         self.mapView.delegate = self
-        self.pins = DataLayerService.getObjectForEntityName("AlbumPin") as! [AlbumPin]
-        
-        for pin in pins {
-            var coordinate = CLLocationCoordinate2D()
-            coordinate.latitude = Double(pin.latitude!)
-            coordinate.longitude = Double(pin.longitude!)
-            
-            let annotation = AlbumPointAnnotation()
-            annotation.coordinate = coordinate
-            annotation.title = "Album"
-            annotation.pin = pin
-            mapView.addAnnotation(annotation)
-        }
+        loadPins()
     }
     
     override func viewDidLoad() {
@@ -228,10 +333,14 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
         super.didReceiveMemoryWarning()
     }
     
+    // Load all the pins asynchronously
     func loadPins() {
         let queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0)
         dispatch_async(queue) { () -> Void in
+            // Fetch all persisted pins
             self.pins = DataLayerService.getObjectForEntityName("AlbumPin") as! [AlbumPin]
+            
+            // Load each pin into the map view
             for pin in self.pins {
                 var coordinate = CLLocationCoordinate2D()
                 coordinate.latitude = Double(pin.latitude!)
@@ -250,19 +359,22 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
     }
     
     func handleTap(sender: UILongPressGestureRecognizer) {
+        // On the end of a long tap gesture, create and store a new pin
         if (sender.state == .Ended) {
             print("MAP VIEW TAPPED")
 
+            // Retrieve the coordinates of where we tapped
             let location = sender.locationInView(mapView)
             let coordinate = mapView.convertPoint(location, toCoordinateFromView: mapView)
             
+            // Create new album pin object and persist it
             let pin = DataLayerService.createObjectForName("AlbumPin") as! AlbumPin
             pin.longitude = coordinate.longitude
             pin.latitude  = coordinate.latitude
             pin.createdOn = NSDate()
-            
             DataLayerService.saveContext()
             
+            // Add the pin to our list of pins
             self.pins.append(pin)
             
             // Add annotation
@@ -279,6 +391,7 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
         
         var pinView = mapView.dequeueReusableAnnotationViewWithIdentifier(reuseId) as? MKPinAnnotationView
         
+        // Define how to present the pin
         if pinView == nil {
             pinView = MKPinAnnotationView(annotation: annotation, reuseIdentifier: reuseId)
             pinView!.animatesDrop = true
@@ -295,12 +408,13 @@ class MapViewController : UIViewController, UIGestureRecognizerDelegate, MKMapVi
     func mapView(mapView: MKMapView, didSelectAnnotationView view: MKAnnotationView) {
         print("ANNOTATION SELECTED")
         
+        // Retrieve the selected pin
         guard let annotation = view.annotation else { return }
         let pinAnnotation = annotation as! AlbumPointAnnotation
         
+        // Open photo collection view for the selected pin
         let viewController = self.storyboard?.instantiateViewControllerWithIdentifier("PhotoCollectionViewController") as! PhotoCollectionViewController
         viewController.pin = pinAnnotation.pin
-        
         self.navigationController?.pushViewController(viewController, animated: true)
         mapView.deselectAnnotation(annotation, animated: true)
     }

@@ -17,4 +17,5 @@ extension AlbumPinPhoto {
     @NSManaged var title: String?
     @NSManaged var image: NSData?
     @NSManaged var pin: NSManagedObject?
+    @NSManaged var url: String?
 }

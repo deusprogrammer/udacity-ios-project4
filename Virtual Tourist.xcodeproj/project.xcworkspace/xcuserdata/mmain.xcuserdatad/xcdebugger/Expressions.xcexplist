@@ -22,13 +22,13 @@
          </PersistentStrings>
       </ContextState>
       <ContextState
-         contextName = "PhotoCollectionViewController.viewWillAppear(Bool) -&gt; ():ViewController.swift">
+         contextName = "PhotoCollectionViewController.collectionView(UICollectionView, didSelectItemAtIndexPath : NSIndexPath) -&gt; ():ViewController.swift">
          <PersistentStrings>
             <PersistentString
-               value = "pin.photos?.count">
+               value = "photo.title">
             </PersistentString>
             <PersistentString
-               value = "pin.photos">
+               value = "photo.url">
             </PersistentString>
          </PersistentStrings>
       </ContextState>
@@ -54,6 +54,37 @@
             </PersistentString>
             <PersistentString
                value = "pin.longitude">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "PhotoCollectionViewController.(deletePhoto(AlbumPinPhoto) -&gt; ()).(closure #1):ViewController.swift">
+         <PersistentStrings>
+            <PersistentString
+               value = "photo.title">
+            </PersistentString>
+            <PersistentString
+               value = "ctxPhoto.title">
+            </PersistentString>
+            <PersistentString
+               value = "ctxPhoto.url">
+            </PersistentString>
+            <PersistentString
+               value = "photo.objectID">
+            </PersistentString>
+            <PersistentString
+               value = "photo.url">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "PhotoCollectionViewController.viewWillAppear(Bool) -&gt; ():ViewController.swift">
+         <PersistentStrings>
+            <PersistentString
+               value = "pin.photos?.count">
+            </PersistentString>
+            <PersistentString
+               value = "pin.photos">
             </PersistentString>
          </PersistentStrings>
       </ContextState>
