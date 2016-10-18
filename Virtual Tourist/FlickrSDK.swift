@@ -205,7 +205,11 @@ class FlickrApiService {
             }
             
             // Acquire the results from the results key at the root of the returned object
-            let count = JSONHelper.search("/photos/pages", object: data) as! Int
+            var count = JSONHelper.search("/photos/pages", object: data) as! Int
+            
+            // Calculate the page count
+            let maxPages = 4000 / pageSize
+            count = min(count, maxPages)
             
             if (onComplete != nil) {
                 onComplete(count: count)
